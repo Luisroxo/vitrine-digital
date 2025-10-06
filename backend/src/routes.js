@@ -2,11 +2,14 @@ const express = require('express');
 const ProductController = require('./controllers/ProductController');
 const BlingController = require('./controllers/BlingController');
 const TenantController = require('./controllers/TenantController');
+const DomainController = require('./controllers/DomainController');
+const ThemeController = require('./controllers/ThemeController');
 const { tenantResolver, requireTenant } = require('./middleware/tenant-resolver');
 const { validateDomain, checkDomainStatus } = require('./middleware/domain-validator');
 
 const routes = express.Router();
 const blingController = new BlingController();
+const themeController = new ThemeController();
 
 // Middleware global de resolução de tenant
 routes.use(tenantResolver);
@@ -87,6 +90,104 @@ routes.get('/api/vitrine/config', requireTenant, (req, res) => {
     }
   });
 });
+
+// ========================================
+// DOMAIN MANAGEMENT ROUTES
+// ========================================
+
+// Setup novo domínio para tenant
+routes.post('/api/tenants/:tenantId/domains', 
+  DomainController.requireAdmin,
+  DomainController.domainRateLimit,
+  DomainController.setupDomain
+);
+
+// Remove domínio de tenant
+routes.delete('/api/tenants/:tenantId/domains/:domain', 
+  DomainController.requireAdmin,
+  DomainController.removeDomain
+);
+
+// Status específico de domínio
+routes.get('/api/domains/:domain/status', DomainController.getDomainStatus);
+
+// Health check de todos os domínios
+routes.get('/api/domains/health-check', 
+  DomainController.requireAdmin,
+  DomainController.healthCheckAllDomains
+);
+
+// Renovar SSL de todos os domínios
+routes.post('/api/domains/renew-ssl', 
+  DomainController.requireAdmin,
+  DomainController.renewAllSSL
+);
+
+// Webhook do Cloudflare
+routes.post('/api/domains/webhook/cloudflare', DomainController.cloudflareWebhook);
+
+// ========================================
+// WHITE LABEL CUSTOMIZATION ROUTES
+// ========================================
+
+// Tema e personalização visual
+routes.put('/api/tenants/:tenantId/theme', 
+  DomainController.requireAdmin,
+  themeController.updateTheme.bind(themeController)
+);
+
+routes.get('/api/tenants/:tenantId/theme', 
+  DomainController.requireAdmin,
+  themeController.getTheme.bind(themeController)
+);
+
+routes.get('/api/tenants/:tenantId/theme/compiled',
+  themeController.getCompiledTheme.bind(themeController)
+);
+
+routes.get('/api/tenants/:tenantId/theme/preview',
+  themeController.getThemePreview.bind(themeController)
+);
+
+routes.post('/api/tenants/:tenantId/theme/reset',
+  DomainController.requireAdmin,
+  themeController.resetTheme.bind(themeController)
+);
+
+// Gestão de assets (logos, imagens, etc)
+routes.post('/api/tenants/:tenantId/assets',
+  DomainController.requireAdmin,
+  themeController.getUploadMiddleware(),
+  themeController.uploadAsset.bind(themeController)
+);
+
+routes.get('/api/tenants/:tenantId/assets',
+  DomainController.requireAdmin,
+  themeController.getAssets.bind(themeController)
+);
+
+routes.delete('/api/tenants/:tenantId/assets/:fileName',
+  DomainController.requireAdmin,
+  themeController.deleteAsset.bind(themeController)
+);
+
+routes.get('/api/tenants/:tenantId/assets/:fileName/preview',
+  themeController.getAssetPreview.bind(themeController)
+);
+
+// Templates disponíveis
+routes.get('/api/theme/templates',
+  themeController.getTemplates.bind(themeController)
+);
+
+// Tema atual do tenant (público - usado pela vitrine)
+routes.get('/api/theme/current', requireTenant,
+  themeController.getTheme.bind(themeController)
+);
+
+routes.get('/api/theme/current/compiled', requireTenant,
+  themeController.getCompiledTheme.bind(themeController)
+);
 
 // ========================================
 // FALLBACK ROUTES
