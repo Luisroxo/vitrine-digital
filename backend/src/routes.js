@@ -7,6 +7,8 @@ const ThemeController = require('./controllers/ThemeController');
 const OrderController = require('./controllers/OrderController');
 const PartnershipController = require('./controllers/PartnershipController');
 const BillingController = require('./controllers/BillingController');
+const BetaOnboardingController = require('./controllers/BetaOnboardingController');
+const HealthCheckService = require('./services/HealthCheckService');
 const { tenantResolver, requireTenant } = require('./middleware/tenant-resolver');
 const { validateDomain, checkDomainStatus } = require('./middleware/domain-validator');
 
@@ -14,14 +16,14 @@ const routes = express.Router();
 const blingController = new BlingController();
 const themeController = new ThemeController();
 const orderController = new OrderController();
+const betaOnboardingController = new BetaOnboardingController();
+const healthCheckService = new HealthCheckService();
 
 // Middleware global de resolução de tenant
 routes.use(tenantResolver);
 
-// Rotas públicas (sem necessidade de tenant)
-routes.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
+// Setup health check routes
+healthCheckService.setupRoutes(routes);
 
 // Rotas de validação de domínio
 routes.get('/api/domain/check/:domain?', checkDomainStatus);
@@ -274,6 +276,27 @@ routes.get('/api/theme/current', requireTenant,
 routes.get('/api/theme/current/compiled', requireTenant,
   themeController.getCompiledTheme.bind(themeController)
 );
+
+// ========================================
+// ROTAS BETA ONBOARDING
+// ========================================
+
+// Beta onboarding management
+routes.post('/api/beta/onboarding/start', requireTenant, betaOnboardingController.startOnboarding.bind(betaOnboardingController));
+routes.get('/api/beta/onboarding/status', requireTenant, betaOnboardingController.getOnboardingStatus.bind(betaOnboardingController));
+routes.get('/api/beta/onboarding/steps/:user_type', betaOnboardingController.getOnboardingSteps.bind(betaOnboardingController));
+routes.put('/api/beta/onboarding/:onboarding_id/step/:step_id', requireTenant, betaOnboardingController.completeStep.bind(betaOnboardingController));
+
+// Beta feedback and support
+routes.post('/api/beta/feedback', requireTenant, betaOnboardingController.submitFeedback.bind(betaOnboardingController));
+routes.post('/api/beta/support/ticket', requireTenant, betaOnboardingController.createSupportTicket.bind(betaOnboardingController));
+
+// Beta metrics
+routes.get('/api/beta/metrics', requireTenant, betaOnboardingController.getBetaMetrics.bind(betaOnboardingController));
+routes.post('/api/beta/metrics', requireTenant, betaOnboardingController.recordMetric.bind(betaOnboardingController));
+
+// Admin beta overview (requires admin auth - to be implemented)
+routes.get('/api/admin/beta/overview', betaOnboardingController.getBetaOverview.bind(betaOnboardingController));
 
 // ========================================
 // FALLBACK ROUTES

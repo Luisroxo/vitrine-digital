@@ -3,18 +3,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCogs, faBoxes, faShoppingCart, faSync, faTools, faClock,
   faPlus, faList, faChartBar, faCog, faArrowLeft, faExclamationTriangle, 
-  faHandshake, faCreditCard
+  faHandshake, faCreditCard, faRocket
 } from '@fortawesome/free-solid-svg-icons';
 import BlingIntegration from '../components/BlingIntegration';
 import OrderManagement from '../components/OrderManagement';
 import PartnershipDashboard from '../components/PartnershipDashboard';
 import BillingDashboard from '../components/BillingDashboard';
+import BetaOnboarding from '../components/BetaOnboarding';
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('onboarding');
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'onboarding':
+        return <BetaOnboarding />;
       case 'orders':
         return <OrderManagement />;
       case 'bling':
@@ -202,6 +205,15 @@ const Admin = () => {
           
           {/* Navegação por abas */}
           <ul className="nav nav-tabs mb-4">
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'onboarding' ? 'active' : ''}`}
+                onClick={() => setActiveTab('onboarding')}
+              >
+                <FontAwesomeIcon icon={faRocket} className="me-2" />
+                Onboarding
+              </button>
+            </li>
             <li className="nav-item">
               <button 
                 className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
