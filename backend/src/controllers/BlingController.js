@@ -1,24 +1,93 @@
-const BlingService = require('../services/BlingService');
-const connection = require('../database/connection');
+const BlingMultiTenantService = require('../services/BlingMultiTenantService');
+const db = require('../database/connection');
 
 class BlingController {
-  constructor() {
-    this.blingService = new BlingService();
+  // Instâncias são criadas por tenant conforme necessário
+  getTenantBlingService(tenantId) {
+    return new BlingMultiTenantService(tenantId);
   }
 
   /**
    * Configura autenticação inicial com Bling
    * GET /api/bling/auth/url
    */
+  /**
+   * Configura credenciais da integração Bling (por tenant)
+   * POST /api/bling/auth/config
+   */
+  async configureIntegration(req, res) {
+    try {
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado',
+          message: 'Contexto de tenant é obrigatório'
+        });
+      }
+
+      const { client_id, client_secret, company_name, sync_settings } = req.body;
+
+      if (!client_id || !client_secret) {
+        return res.status(400).json({
+          error: 'Dados incompletos',
+          message: 'Client ID e Client Secret são obrigatórios'
+        });
+      }
+
+      const blingService = this.getTenantBlingService(tenantId);
+      
+      // Criar/atualizar configuração da integração
+      const integration = await blingService.upsertTenantIntegration({
+        client_id,
+        client_secret,
+        company_name,
+        sync_settings,
+        status: 'configured'
+      });
+
+      res.json({
+        message: 'Configuração salva com sucesso',
+        integration: {
+          id: integration.id,
+          company_name: integration.company_name,
+          status: integration.status,
+          created_at: integration.created_at
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao configurar integração:', error);
+      res.status(500).json({
+        error: 'Erro interno do servidor',
+        message: error.message
+      });
+    }
+  }
+
   async getAuthUrl(req, res) {
     try {
-      const clientId = process.env.BLING_CLIENT_ID;
-      const redirectUri = process.env.BLING_REDIRECT_URI || 'http://localhost:3333/api/bling/auth/callback';
-      const state = Date.now().toString(); // State para segurança
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
+      }
+
+      const blingService = this.getTenantBlingService(tenantId);
+      const integration = await blingService.getTenantIntegration();
       
+      if (!integration || !integration.client_id) {
+        return res.status(400).json({
+          error: 'Integração não configurada',
+          message: 'Configure primeiro o Client ID e Client Secret'
+        });
+      }
+
+      const redirectUri = process.env.BLING_REDIRECT_URI || 'http://localhost:3333/api/bling/auth/callback';
+      const state = `${tenantId}_${Date.now()}`; // Incluir tenant no state
+
       const authUrl = `https://www.bling.com.br/Api/v3/oauth/authorize?` +
         `response_type=code&` +
-        `client_id=${clientId}&` +
+        `client_id=${integration.client_id}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `state=${state}`;
 
@@ -51,34 +120,41 @@ class BlingController {
         });
       }
 
-      if (!code) {
+      if (!code || !state) {
         return res.status(400).json({
-          error: 'Código inválido',
-          message: 'Código de autorização não recebido'
+          error: 'Dados inválidos',
+          message: 'Código de autorização ou state não recebidos'
         });
       }
 
-      // Troca o código pelo token
-      const tokenData = await this.blingService.authenticate(code);
+      // Extrair tenantId do state
+      const [tenantId] = state.split('_');
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'State inválido',
+          message: 'Não foi possível identificar o tenant'
+        });
+      }
+
+      const blingService = this.getTenantBlingService(tenantId);
       
-      // Salva o token no banco de dados (ou variável de ambiente)
-      // TODO: Implementar armazenamento seguro do token
-      console.log('Token Bling obtido:', {
+      // Inicializar e autenticar
+      await blingService.initialize();
+      const tokenData = await blingService.authenticate(code);
+      
+      console.log(`✅ Token Bling obtido para tenant ${tenantId}:`, {
         access_token: tokenData.access_token.substring(0, 10) + '...',
         expires_in: tokenData.expires_in
       });
 
       // Testa a conexão
-      const connectionTest = await this.blingService.testConnection();
+      const connectionTest = await blingService.testConnection();
       
       if (connectionTest) {
-        // Busca dados da empresa
-        const companyInfo = await this.blingService.getCompanyInfo();
-        
         res.json({
           success: true,
           message: 'Integração com Bling configurada com sucesso!',
-          company: companyInfo?.razaoSocial || 'Empresa conectada',
+          tenantId,
           expiresIn: tokenData.expires_in
         });
       } else {
@@ -103,10 +179,19 @@ class BlingController {
    */
   async syncProducts(req, res) {
     try {
-      console.log('Iniciando sincronização de produtos do Bling...');
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
+      }
+
+      console.log(`🔄 Iniciando sincronização de produtos do Bling (tenant ${tenantId})...`);
+      
+      const blingService = this.getTenantBlingService(tenantId);
       
       // Verifica conexão
-      const isConnected = await this.blingService.testConnection();
+      const isConnected = await blingService.testConnection();
       if (!isConnected) {
         return res.status(400).json({
           error: 'Bling não conectado',
@@ -114,10 +199,10 @@ class BlingController {
         });
       }
 
-      // Sincroniza produtos
-      const blingProducts = await this.blingService.syncProducts();
+      // Sincroniza produtos (já salva no banco automaticamente)
+      const syncedProducts = await blingService.syncProducts();
       
-      if (!blingProducts || blingProducts.length === 0) {
+      if (!syncedProducts || syncedProducts.length === 0) {
         return res.json({
           success: true,
           message: 'Nenhum produto encontrado no Bling',
@@ -125,70 +210,18 @@ class BlingController {
         });
       }
 
-      // Salva produtos no banco local
-      let synchronized = 0;
-      const errors = [];
-
-      for (const product of blingProducts) {
-        try {
-          // Verifica se produto já existe
-          const existingProduct = await connection('products')
-            .where('bling_id', product.id)
-            .first();
-
-          if (existingProduct) {
-            // Atualiza produto existente
-            await connection('products')
-              .where('bling_id', product.id)
-              .update({
-                nome: product.nome,
-                preco: product.preco,
-                preco_promocional: product.precoPromocional,
-                descricao: product.descricao,
-                categoria: product.categoria,
-                imagem: product.imagem,
-                codigo: product.codigo,
-                estoque: product.estoque,
-                ativo: product.ativo,
-                bling_data: JSON.stringify(product.blingData),
-                updated_at: connection.fn.now()
-              });
-          } else {
-            // Insere novo produto
-            await connection('products').insert({
-              nome: product.nome,
-              preco: product.preco,
-              preco_promocional: product.precoPromocional,
-              descricao: product.descricao,
-              categoria: product.categoria,
-              imagem: product.imagem,
-              codigo: product.codigo,
-              estoque: product.estoque,
-              ativo: product.ativo,
-              bling_id: product.id,
-              bling_data: JSON.stringify(product.blingData),
-              created_at: connection.fn.now(),
-              updated_at: connection.fn.now()
-            });
-          }
-          
-          synchronized++;
-        } catch (productError) {
-          console.error(`Erro ao salvar produto ${product.id}:`, productError);
-          errors.push({
-            productId: product.id,
-            productName: product.nome,
-            error: productError.message
-          });
-        }
-      }
-
       res.json({
         success: true,
-        message: `Sincronização concluída: ${synchronized} produtos processados`,
-        synchronized,
-        total: blingProducts.length,
-        errors: errors.length > 0 ? errors : undefined
+        message: `Sincronização concluída: ${syncedProducts.length} produtos processados`,
+        synchronized: syncedProducts.length,
+        tenant_id: tenantId,
+        products: syncedProducts.map(p => ({
+          id: p.bling_id,
+          nome: p.nome,
+          preco: p.preco,
+          categoria: p.categoria,
+          estoque: p.estoque
+        }))
       });
 
     } catch (error) {
@@ -206,25 +239,46 @@ class BlingController {
    */
   async getStatus(req, res) {
     try {
-      const isConnected = await this.blingService.testConnection();
-      
-      if (isConnected) {
-        const companyInfo = await this.blingService.getCompanyInfo();
-        res.json({
-          connected: true,
-          company: companyInfo?.razaoSocial || 'Conectado',
-          message: 'Integração ativa'
-        });
-      } else {
-        res.json({
-          connected: false,
-          message: 'Bling não conectado'
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
         });
       }
+
+      const blingService = this.getTenantBlingService(tenantId);
+      const stats = await blingService.getIntegrationStats();
+      
+      if (!stats) {
+        return res.json({
+          connected: false,
+          message: 'Integração não configurada',
+          tenant_id: tenantId
+        });
+      }
+
+      const isConnected = await blingService.testConnection();
+      
+      res.json({
+        connected: isConnected,
+        tenant_id: tenantId,
+        integration: {
+          id: stats.integration.id,
+          status: stats.integration.status,
+          company_name: stats.integration.company_name,
+          products_synced: stats.products_synced,
+          orders_created: stats.orders_created,
+          last_sync: stats.last_sync,
+          created_at: stats.integration.created_at
+        },
+        stats: stats.stats,
+        message: isConnected ? 'Integração ativa' : 'Erro de conexão'
+      });
     } catch (error) {
       res.json({
         connected: false,
-        error: error.message
+        error: error.message,
+        tenant_id: req.tenant?.id
       });
     }
   }
@@ -235,10 +289,24 @@ class BlingController {
    */
   async getCategories(req, res) {
     try {
-      const categories = await this.blingService.getCategories();
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
+      }
+
+      const blingService = this.getTenantBlingService(tenantId);
+      
+      // Buscar categorias mapeadas do tenant
+      const categories = await db('bling_category_mappings')
+        .where('tenant_id', tenantId)
+        .select('*');
+
       res.json({
         success: true,
-        categories
+        tenant_id: tenantId,
+        categories: categories || []
       });
     } catch (error) {
       console.error('Erro ao buscar categorias:', error);
@@ -255,6 +323,13 @@ class BlingController {
    */
   async createOrder(req, res) {
     try {
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
+      }
+
       const { 
         cliente, 
         itens, 
@@ -271,34 +346,26 @@ class BlingController {
         });
       }
 
-      // Cria contato no Bling se necessário
-      let blingContact = null;
-      if (cliente.email) {
-        try {
-          blingContact = await this.blingService.createOrUpdateContact(cliente);
-        } catch (contactError) {
-          console.warn('Erro ao criar contato no Bling:', contactError.message);
-        }
-      }
-
+      const blingService = this.getTenantBlingService(tenantId);
+      
       // Cria o pedido no Bling
       const orderData = {
-        numero: `WEB-${Date.now()}`,
+        numero: `WEB-${tenantId}-${Date.now()}`,
         cliente,
         itens,
         total,
         formaPagamento,
-        observacoes,
-        contactId: blingContact?.id
+        observacoes
       };
 
-      const blingOrder = await this.blingService.createOrder(orderData);
+      const blingOrder = await blingService.createOrder(orderData);
 
       res.json({
         success: true,
         message: 'Pedido criado no Bling com sucesso',
+        tenant_id: tenantId,
         blingOrderId: blingOrder.id,
-        orderNumber: blingOrder.numero
+        orderNumber: orderData.numero
       });
 
     } catch (error) {
@@ -311,84 +378,110 @@ class BlingController {
   }
 
   /**
-   * Webhook para receber atualizações do Bling
-   * POST /api/bling/webhook
+   * Webhook para receber atualizações do Bling (multi-tenant)
+   * POST /api/bling/webhook/:tenantId/:webhookKey
    */
   async webhook(req, res) {
     try {
-      const { evento, dados } = req.body;
+      const { tenantId, webhookKey } = req.params;
+      const eventData = req.body;
       
-      console.log('Webhook recebido do Bling:', { evento, dados });
-
-      switch (evento) {
-        case 'produto.atualizado':
-          // Atualiza produto no banco local
-          await this.handleProductUpdate(dados);
-          break;
-          
-        case 'estoque.alterado':
-          // Atualiza estoque no banco local
-          await this.handleStockUpdate(dados);
-          break;
-          
-        case 'pedido.alterado':
-          // Processa alteração de status do pedido
-          await this.handleOrderUpdate(dados);
-          break;
-          
-        default:
-          console.log('Evento não tratado:', evento);
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant ID é obrigatório na URL'
+        });
       }
 
-      res.json({ received: true });
+      console.log(`🔔 Webhook recebido do Bling (tenant ${tenantId}):`, eventData);
+
+      const blingService = this.getTenantBlingService(tenantId);
+      
+      // Processar webhook específico do tenant
+      const result = await blingService.processWebhook(eventData, webhookKey);
+
+      res.json({ 
+        received: true,
+        tenant_id: tenantId,
+        event: eventData.event,
+        processed: !!result
+      });
 
     } catch (error) {
       console.error('Erro no webhook:', error);
       res.status(500).json({
-        error: 'Erro no processamento do webhook'
+        error: 'Erro no processamento do webhook',
+        message: error.message
       });
     }
   }
 
-  // Métodos auxiliares para webhook
-  async handleProductUpdate(data) {
+  /**
+   * Obtém histórico de sincronização
+   * GET /api/bling/sync/history
+   */
+  async getSyncHistory(req, res) {
     try {
-      if (data.id) {
-        const product = await this.blingService.getProduct(data.id);
-        if (product) {
-          await connection('products')
-            .where('bling_id', data.id)
-            .update({
-              nome: product.nome,
-              preco: product.preco,
-              updated_at: connection.fn.now()
-            });
-        }
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
       }
+
+      const { limit = 50 } = req.query;
+      const blingService = this.getTenantBlingService(tenantId);
+      
+      const history = await blingService.getSyncHistory(parseInt(limit));
+
+      res.json({
+        success: true,
+        tenant_id: tenantId,
+        history
+      });
     } catch (error) {
-      console.error('Erro ao atualizar produto via webhook:', error);
+      console.error('Erro ao buscar histórico:', error);
+      res.status(500).json({
+        error: 'Erro ao buscar histórico',
+        message: error.message
+      });
     }
   }
 
-  async handleStockUpdate(data) {
+  /**
+   * Remove integração do tenant
+   * DELETE /api/bling/integration
+   */
+  async removeIntegration(req, res) {
     try {
-      if (data.produtoId) {
-        const stock = await this.blingService.checkStock(data.produtoId);
-        await connection('products')
-          .where('bling_id', data.produtoId)
-          .update({
-            estoque: stock.saldo || 0,
-            updated_at: connection.fn.now()
-          });
+      const tenantId = req.tenant?.id;
+      if (!tenantId) {
+        return res.status(400).json({
+          error: 'Tenant não identificado'
+        });
       }
-    } catch (error) {
-      console.error('Erro ao atualizar estoque via webhook:', error);
-    }
-  }
 
-  async handleOrderUpdate(data) {
-    // Implementar lógica de atualização de pedidos conforme necessário
-    console.log('Pedido atualizado no Bling:', data);
+      // Desativar integração
+      await db('bling_integrations')
+        .where('tenant_id', tenantId)
+        .update({
+          status: 'inactive',
+          access_token: null,
+          refresh_token: null,
+          updated_at: new Date()
+        });
+
+      res.json({
+        success: true,
+        message: 'Integração removida com sucesso',
+        tenant_id: tenantId
+      });
+    } catch (error) {
+      console.error('Erro ao remover integração:', error);
+      res.status(500).json({
+        error: 'Erro ao remover integração',
+        message: error.message
+      });
+    }
   }
 }
 

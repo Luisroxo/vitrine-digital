@@ -4,12 +4,16 @@ const BlingController = require('./controllers/BlingController');
 const TenantController = require('./controllers/TenantController');
 const DomainController = require('./controllers/DomainController');
 const ThemeController = require('./controllers/ThemeController');
+const OrderController = require('./controllers/OrderController');
+const PartnershipController = require('./controllers/PartnershipController');
+const BillingController = require('./controllers/BillingController');
 const { tenantResolver, requireTenant } = require('./middleware/tenant-resolver');
 const { validateDomain, checkDomainStatus } = require('./middleware/domain-validator');
 
 const routes = express.Router();
 const blingController = new BlingController();
 const themeController = new ThemeController();
+const orderController = new OrderController();
 
 // Middleware global de resolução de tenant
 routes.use(tenantResolver);
@@ -52,13 +56,95 @@ routes.get('/api/products/popular', requireTenant, ProductController.popular);
 routes.get('/api/products/offers', requireTenant, ProductController.offers);
 
 // Rotas da API - Integração Bling ERP (contexto do tenant)
-routes.get('/api/bling/status', requireTenant, blingController.getStatus.bind(blingController));
+// Configuração da integração
+routes.post('/api/bling/auth/config', requireTenant, blingController.configureIntegration.bind(blingController));
 routes.get('/api/bling/auth/url', requireTenant, blingController.getAuthUrl.bind(blingController));
-routes.get('/api/bling/auth/callback', requireTenant, blingController.authCallback.bind(blingController));
+routes.get('/api/bling/auth/callback', blingController.authCallback.bind(blingController)); // Callback não usa middleware tenant
+
+// Status e informações
+routes.get('/api/bling/status', requireTenant, blingController.getStatus.bind(blingController));
+
+// Sincronização
 routes.post('/api/bling/sync/products', requireTenant, blingController.syncProducts.bind(blingController));
+routes.get('/api/bling/sync/history', requireTenant, blingController.getSyncHistory.bind(blingController));
+
+// Dados do Bling
 routes.get('/api/bling/categories', requireTenant, blingController.getCategories.bind(blingController));
 routes.post('/api/bling/orders', requireTenant, blingController.createOrder.bind(blingController));
-routes.post('/api/bling/webhook', blingController.webhook.bind(blingController)); // Webhook não precisa de tenant específico
+
+// Webhook multi-tenant (tenant na URL)
+routes.post('/api/bling/webhook/:tenantId/:webhookKey', blingController.webhook.bind(blingController));
+
+// Gerenciamento da integração
+routes.delete('/api/bling/integration', requireTenant, blingController.removeIntegration.bind(blingController));
+
+// ========================================
+// ROTAS DO SISTEMA DE PEDIDOS (Multi-tenant)
+// ========================================
+
+// Pedidos - CRUD completo isolado por tenant
+routes.post('/api/orders', requireTenant, orderController.createOrder.bind(orderController));
+routes.get('/api/orders', requireTenant, orderController.getOrders.bind(orderController));
+routes.get('/api/orders/stats', requireTenant, orderController.getOrderStats.bind(orderController));
+routes.get('/api/orders/:id', requireTenant, orderController.getOrderById.bind(orderController));
+routes.put('/api/orders/:id', requireTenant, orderController.updateOrder.bind(orderController));
+
+// Status management
+routes.patch('/api/orders/:id/status', requireTenant, orderController.updateOrderStatus.bind(orderController));
+routes.post('/api/orders/:id/cancel', requireTenant, orderController.cancelOrder.bind(orderController));
+
+// Notificações
+routes.get('/api/orders/:id/notifications', requireTenant, orderController.getOrderNotifications.bind(orderController));
+
+// Configurações de pedidos por tenant
+routes.get('/api/orders/settings', requireTenant, orderController.getOrderSettings.bind(orderController));
+routes.put('/api/orders/settings', requireTenant, orderController.updateOrderSettings.bind(orderController));
+
+// ========================================
+// ROTAS DO SISTEMA DE PARCERIAS 1:1
+// ========================================
+
+// Gerenciamento de convites (fornecedor)
+routes.post('/api/partnerships/invite', requireTenant, PartnershipController.createInvitation);
+routes.get('/api/partnerships', requireTenant, PartnershipController.getPartnerships);
+routes.get('/api/partnerships/stats', requireTenant, PartnershipController.getStats);
+
+// Gerenciamento de parceria específica (fornecedor)
+routes.get('/api/partnerships/:id', requireTenant, PartnershipController.getPartnership);
+routes.put('/api/partnerships/:id/suspend', requireTenant, PartnershipController.suspendPartnership);
+routes.put('/api/partnerships/:id/reactivate', requireTenant, PartnershipController.reactivatePartnership);
+routes.post('/api/partnerships/:id/sync', requireTenant, PartnershipController.forceSync);
+
+// Mensagens entre parceiros
+routes.post('/api/partnerships/:id/messages', requireTenant, PartnershipController.sendMessage);
+routes.get('/api/partnerships/:id/messages', requireTenant, PartnershipController.getMessages);
+
+// Aceitação de convite (público - sem tenant)
+routes.post('/api/partnerships/accept/:token', PartnershipController.acceptInvitation);
+
+// ========================================
+// ROTAS DO SISTEMA DE BILLING
+// ========================================
+
+// Planos disponíveis (público)
+routes.get('/api/billing/plans', BillingController.getPlans);
+
+// Gerenciamento de assinaturas (por tenant)
+routes.post('/api/billing/subscribe', requireTenant, BillingController.createSubscription);
+routes.get('/api/billing/subscription', requireTenant, BillingController.getSubscription);
+routes.delete('/api/billing/subscription', requireTenant, BillingController.cancelSubscription);
+
+// Dashboard e métricas
+routes.get('/api/billing/dashboard', requireTenant, BillingController.getDashboard);
+routes.get('/api/billing/stats', requireTenant, BillingController.getBillingStats);
+routes.get('/api/billing/limits/:resource?', requireTenant, BillingController.checkLimits);
+
+// Histórico financeiro
+routes.get('/api/billing/payments', requireTenant, BillingController.getPaymentHistory);
+routes.get('/api/billing/next-charge', requireTenant, BillingController.getNextCharge);
+
+// Webhook Stripe (público - sem tenant)
+routes.post('/api/billing/webhook/stripe', BillingController.stripeWebhook);
 
 // ========================================
 // ROTAS WHITE LABEL (Frontend do tenant)

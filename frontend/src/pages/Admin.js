@@ -1,35 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCogs, faBoxes, faShoppingCart, faSync, faTools, faClock,
-  faPlus, faList, faChartBar, faCog, faArrowLeft, faExclamationTriangle
+  faPlus, faList, faChartBar, faCog, faArrowLeft, faExclamationTriangle, 
+  faHandshake, faCreditCard
 } from '@fortawesome/free-solid-svg-icons';
 import BlingIntegration from '../components/BlingIntegration';
+import OrderManagement from '../components/OrderManagement';
+import PartnershipDashboard from '../components/PartnershipDashboard';
+import BillingDashboard from '../components/BillingDashboard';
 
 const Admin = () => {
-  return (
-    <div className="container my-5">
-      <div className="row">
-        <div className="col-12">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2>
-              <FontAwesomeIcon icon={faCogs} className="me-2" />
-              Painel Administrativo
-            </h2>
-            <nav aria-label="breadcrumb">
-              <ol className="breadcrumb">
-                <li className="breadcrumb-item">
-                  <a href="/" className="text-decoration-none">Início</a>
-                </li>
-                <li className="breadcrumb-item active" aria-current="page">
-                  Admin
-                </li>
-              </ol>
-            </nav>
-          </div>
-        </div>
-      </div>
+  const [activeTab, setActiveTab] = useState('dashboard');
 
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'orders':
+        return <OrderManagement />;
+      case 'bling':
+        return <BlingIntegration />;
+      case 'partnerships':
+        return <PartnershipDashboard />;
+      case 'billing':
+        return <BillingDashboard />;
+      case 'dashboard':
+      default:
+        return renderDashboard();
+    }
+  };
+
+  const renderDashboard = () => (
+    <>
       <div className="row">
         <div className="col-12 mb-4">
           <BlingIntegration />
@@ -48,21 +49,20 @@ const Admin = () => {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="h4 mb-0">156</div>
-                  <small className="text-muted">Total de produtos</small>
+                  <p className="text-muted mb-1">Total de produtos ativos</p>
+                  <h4 className="mb-0">--</h4>
                 </div>
-                <FontAwesomeIcon icon={faBoxes} size="2x" className="text-primary" />
+                <FontAwesomeIcon icon={faBoxes} size="2x" className="text-muted" />
               </div>
-              <hr />
-              <div className="row text-center">
-                <div className="col">
-                  <div className="h6 mb-0">134</div>
-                  <small className="text-success">Ativos</small>
-                </div>
-                <div className="col">
-                  <div className="h6 mb-0">22</div>
-                  <small className="text-warning">Sem estoque</small>
-                </div>
+              <div className="mt-3">
+                <button className="btn btn-outline-primary btn-sm me-2">
+                  <FontAwesomeIcon icon={faPlus} className="me-1" />
+                  Adicionar
+                </button>
+                <button className="btn btn-outline-secondary btn-sm">
+                  <FontAwesomeIcon icon={faList} className="me-1" />
+                  Listar
+                </button>
               </div>
             </div>
           </div>
@@ -79,21 +79,23 @@ const Admin = () => {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="h4 mb-0">42</div>
-                  <small className="text-muted">Total de pedidos</small>
+                  <p className="text-muted mb-1">Pedidos hoje</p>
+                  <h4 className="mb-0">--</h4>
                 </div>
-                <FontAwesomeIcon icon={faShoppingCart} size="2x" className="text-success" />
+                <FontAwesomeIcon icon={faShoppingCart} size="2x" className="text-muted" />
               </div>
-              <hr />
-              <div className="row text-center">
-                <div className="col">
-                  <div className="h6 mb-0">38</div>
-                  <small className="text-success">Concluídos</small>
-                </div>
-                <div className="col">
-                  <div className="h6 mb-0">4</div>
-                  <small className="text-primary">Pendentes</small>
-                </div>
+              <div className="mt-3">
+                <button 
+                  className="btn btn-outline-primary btn-sm me-2"
+                  onClick={() => setActiveTab('orders')}
+                >
+                  <FontAwesomeIcon icon={faList} className="me-1" />
+                  Gerenciar
+                </button>
+                <button className="btn btn-outline-secondary btn-sm">
+                  <FontAwesomeIcon icon={faChartBar} className="me-1" />
+                  Relatórios
+                </button>
               </div>
             </div>
           </div>
@@ -110,19 +112,23 @@ const Admin = () => {
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center">
                 <div>
-                  <div className="h4 mb-0">
-                    <span className="badge bg-success">OK</span>
-                  </div>
-                  <small className="text-muted">Status da sincronização</small>
+                  <p className="text-muted mb-1">Última sincronização</p>
+                  <h6 className="mb-0">--</h6>
                 </div>
-                <FontAwesomeIcon icon={faSync} size="2x" className="text-info" />
+                <FontAwesomeIcon icon={faClock} size="2x" className="text-muted" />
               </div>
-              <hr />
-              <div className="text-center">
-                <small className="text-muted">
-                  Última sincronização:<br />
-                  Hoje às 14:32
-                </small>
+              <div className="mt-3">
+                <button className="btn btn-outline-success btn-sm me-2">
+                  <FontAwesomeIcon icon={faSync} className="me-1" />
+                  Sincronizar
+                </button>
+                <button 
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={() => setActiveTab('bling')}
+                >
+                  <FontAwesomeIcon icon={faCog} className="me-1" />
+                  Configurar
+                </button>
               </div>
             </div>
           </div>
@@ -135,42 +141,26 @@ const Admin = () => {
             <div className="card-header">
               <h6 className="mb-0">
                 <FontAwesomeIcon icon={faTools} className="me-2" />
-                Ferramentas de Administração
+                Ferramentas Administrativas
               </h6>
             </div>
             <div className="card-body">
               <div className="row">
-                <div className="col-md-3">
-                  <div className="d-grid">
-                    <button className="btn btn-outline-primary">
-                      <FontAwesomeIcon icon={faPlus} className="me-2" />
-                      Adicionar Produto
-                    </button>
-                  </div>
+                <div className="col-md-6">
+                  <h6>Gestão de Conteúdo</h6>
+                  <ul className="list-unstyled">
+                    <li><a href="#" className="text-decoration-none">Gerenciar categorias</a></li>
+                    <li><a href="#" className="text-decoration-none">Configurar promoções</a></li>
+                    <li><a href="#" className="text-decoration-none">Personalizar layout</a></li>
+                  </ul>
                 </div>
-                <div className="col-md-3">
-                  <div className="d-grid">
-                    <button className="btn btn-outline-info">
-                      <FontAwesomeIcon icon={faList} className="me-2" />
-                      Gerenciar Categorias
-                    </button>
-                  </div>
-                </div>
-                <div className="col-md-3">
-                  <div className="d-grid">
-                    <button className="btn btn-outline-warning">
-                      <FontAwesomeIcon icon={faChartBar} className="me-2" />
-                      Relatórios
-                    </button>
-                  </div>
-                </div>
-                <div className="col-md-3">
-                  <div className="d-grid">
-                    <button className="btn btn-outline-secondary">
-                      <FontAwesomeIcon icon={faCog} className="me-2" />
-                      Configurações
-                    </button>
-                  </div>
+                <div className="col-md-6">
+                  <h6>Relatórios</h6>
+                  <ul className="list-unstyled">
+                    <li><a href="#" className="text-decoration-none">Vendas por período</a></li>
+                    <li><a href="#" className="text-decoration-none">Produtos mais vendidos</a></li>
+                    <li><a href="#" className="text-decoration-none">Análise de desempenho</a></li>
+                  </ul>
                 </div>
               </div>
             </div>
@@ -180,66 +170,89 @@ const Admin = () => {
 
       <div className="row mt-4">
         <div className="col-12">
-          <div className="card">
-            <div className="card-header">
-              <h6 className="mb-0">
-                <FontAwesomeIcon icon={faClock} className="me-2" />
-                Log de Atividades Recentes
-              </h6>
-            </div>
-            <div className="card-body">
-              <div className="list-group list-group-flush">
-                <div className="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <FontAwesomeIcon icon={faSync} className="text-success me-2" />
-                    Produtos sincronizados com Bling ERP
-                    <br />
-                    <small className="text-muted">156 produtos atualizados</small>
-                  </div>
-                  <small className="text-muted">há 2 horas</small>
-                </div>
-                
-                <div className="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <FontAwesomeIcon icon={faShoppingCart} className="text-primary me-2" />
-                    Novo pedido recebido
-                    <br />
-                    <small className="text-muted">Pedido #1234 - R$ 299,90</small>
-                  </div>
-                  <small className="text-muted">há 4 horas</small>
-                </div>
-                
-                <div className="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <FontAwesomeIcon icon={faExclamationTriangle} className="text-warning me-2" />
-                    Produto com estoque baixo
-                    <br />
-                    <small className="text-muted">Smartphone XYZ - 2 unidades restantes</small>
-                  </div>
-                  <small className="text-muted">há 6 horas</small>
-                </div>
-              </div>
-              
-              <div className="text-center mt-3">
-                <button className="btn btn-sm btn-outline-secondary">
-                  <FontAwesomeIcon icon={faPlus} className="me-2" />
-                  Ver todos os logs
-                </button>
-              </div>
-            </div>
+          <div className="alert alert-info" role="alert">
+            <FontAwesomeIcon icon={faExclamationTriangle} className="me-2" />
+            <strong>Dica:</strong> Use o painel de integração Bling para sincronizar seus produtos e pedidos automaticamente.
           </div>
         </div>
       </div>
+    </>
+  );
 
-      {/* Link para voltar ao site */}
-      <div className="row mt-4">
-        <div className="col-12 text-center">
-          <a href="/" className="btn btn-outline-primary">
-            <FontAwesomeIcon icon={faArrowLeft} className="me-2" />
-            Voltar à Vitrine
-          </a>
+  return (
+    <div className="container-fluid my-4">
+      <div className="row">
+        <div className="col-12">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+              <FontAwesomeIcon icon={faCogs} className="me-2" />
+              Painel Administrativo
+            </h2>
+            <nav aria-label="breadcrumb">
+              <ol className="breadcrumb">
+                <li className="breadcrumb-item">
+                  <a href="/" className="text-decoration-none">Início</a>
+                </li>
+                <li className="breadcrumb-item active" aria-current="page">
+                  Admin
+                </li>
+              </ol>
+            </nav>
+          </div>
+          
+          {/* Navegação por abas */}
+          <ul className="nav nav-tabs mb-4">
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+                onClick={() => setActiveTab('dashboard')}
+              >
+                <FontAwesomeIcon icon={faChartBar} className="me-2" />
+                Dashboard
+              </button>
+            </li>
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'orders' ? 'active' : ''}`}
+                onClick={() => setActiveTab('orders')}
+              >
+                <FontAwesomeIcon icon={faShoppingCart} className="me-2" />
+                Pedidos
+              </button>
+            </li>
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'bling' ? 'active' : ''}`}
+                onClick={() => setActiveTab('bling')}
+              >
+                <FontAwesomeIcon icon={faSync} className="me-2" />
+                Integração Bling
+              </button>
+            </li>
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'partnerships' ? 'active' : ''}`}
+                onClick={() => setActiveTab('partnerships')}
+              >
+                <FontAwesomeIcon icon={faHandshake} className="me-2" />
+                Parcerias 1:1
+              </button>
+            </li>
+            <li className="nav-item">
+              <button 
+                className={`nav-link ${activeTab === 'billing' ? 'active' : ''}`}
+                onClick={() => setActiveTab('billing')}
+              >
+                <FontAwesomeIcon icon={faCreditCard} className="me-2" />
+                Billing & Planos
+              </button>
+            </li>
+          </ul>
         </div>
       </div>
+
+      {/* Conteúdo das abas */}
+      {renderTabContent()}
     </div>
   );
 };
