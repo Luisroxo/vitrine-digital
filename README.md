@@ -139,17 +139,40 @@ Para usar a integração com Bling ERP, siga os passos em [BLING_INTEGRATION.md]
 3. **Executar migrações** do banco de dados
 4. **Autorizar integração** via painel administrativo
 
-## 🌟 Próximas Funcionalidades
+## 🚀 Evolução para SaaS White Label
 
-- [ ] Sistema de autenticação de usuários
+Este projeto está sendo **TRANSFORMADO** em uma **plataforma SaaS multi-tenant** que permite fornecedores terem **domínio próprio white label** para conectar lojistas em modelo dropshipping.
+
+### 🗺️ **Roadmap Completo**
+Consulte nosso roadmap detalhado: **[ROADMAP.md](ROADMAP.md)**
+
+### 📊 **Acompanhar Progresso** 
+Track diário de desenvolvimento: **[PROGRESS.md](PROGRESS.md)**
+
+### ⚙️ **Configurações Técnicas**
+Especificações completas: **[PROJECT-CONFIG.md](PROJECT-CONFIG.md)**
+
+## 🌟 Funcionalidades Planejadas (V2-V3)
+
+### **SaaS Core (8 semanas)**
 - [x] Painel administrativo ✅
-- [ ] Carrinho de compras
-- [ ] Sistema de pagamento
-- [ ] Busca e filtros avançados
-- [ ] Avaliações de produtos
-- [ ] Notificações push
-- [ ] Relatórios de vendas
+- [ ] **Arquitetura multi-tenant** 🔥
+- [ ] **Domínio próprio por fornecedor** 🔥
+- [ ] **White label completo** 🔥
+- [ ] **Integração Bling multi-conta** 🔥
+- [ ] **Sistema de billing automático** 🔥
+
+### **Funcionalidades Futuras**
+- [ ] Mobile app (React Native)
+- [ ] IA para recomendação de produtos
+- [ ] Automação de preços
 - [ ] Múltiplas integrações ERP
+- [ ] Marketplace interno
+- [ ] Analytics avançado
+- [ ] API pública para desenvolvedores
+
+## 📈 **Meta do Projeto**
+**90 dias:** 3 fornecedores + 20 lojistas + R$ 5k MRR
 
 ## 📝 Licença
 

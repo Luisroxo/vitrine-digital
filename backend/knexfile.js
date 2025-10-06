@@ -1,5 +1,20 @@
 module.exports = {
   development: {
+    client: 'sqlite3',
+    connection: {
+      filename: './dev_database.sqlite3'
+    },
+    pool: {
+      min: 2,
+      max: 10
+    },
+    migrations: {
+      directory: __dirname + '/src/database/migrations'
+    },
+    useNullAsDefault: true
+  },
+  
+  development_postgres: {
     client: 'postgresql',
     connection: {
       host: process.env.DB_HOST || 'localhost',

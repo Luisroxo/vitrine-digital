@@ -6,27 +6,20 @@ exports.up = function(knex) {
   return knex.schema.table('products', function(table) {
     // Campos de integração com Bling
     table.integer('bling_id').nullable().unique().comment('ID do produto no Bling ERP');
-    table.string('codigo').nullable().comment('Código/SKU do produto');
-    table.integer('estoque').defaultTo(0).comment('Quantidade em estoque');
-    table.boolean('ativo').defaultTo(true).comment('Produto ativo/inativo');
+    table.string('codigo').nullable().comment('Código/SKU do produto no Bling');
+    table.integer('estoque_bling').defaultTo(0).comment('Quantidade em estoque do Bling');
+    table.boolean('bling_sync').defaultTo(false).comment('Se está sincronizado com Bling');
     table.json('bling_data').nullable().comment('Dados completos do Bling (JSON)');
     
-    // Campos adicionais para e-commerce
-    table.decimal('preco_promocional', 10, 2).nullable().comment('Preço promocional');
-    table.string('categoria').nullable().comment('Categoria do produto');
-    table.text('descricao_completa').nullable().comment('Descrição detalhada');
+    // Campos adicionais específicos do Bling
     table.string('marca').nullable().comment('Marca do produto');
-    table.decimal('peso', 8, 3).nullable().comment('Peso em kg');
-    table.string('gtin').nullable().comment('Código GTIN/EAN');
-    
-    // Timestamps para controle
-    table.timestamps(true, true);
+    table.string('gtin').nullable().comment('Código GTIN/EAN do Bling');
+    table.timestamp('last_bling_sync').nullable().comment('Última sincronização com Bling');
     
     // Índices para performance
     table.index('bling_id');
     table.index('codigo');
-    table.index('categoria');
-    table.index('ativo');
+    table.index('bling_sync');
   });
 };
 
