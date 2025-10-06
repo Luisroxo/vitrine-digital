@@ -19,7 +19,8 @@
     "pg": "^8.7.3",
     "sharp": "^0.33.0",
     "sqlite3": "^5.1.7",
-    "stripe": "^19.1.0"
+    "stripe": "^19.1.0",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.19"

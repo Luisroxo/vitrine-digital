@@ -7,7 +7,8 @@ const ThemeController = require('./controllers/ThemeController');
 const OrderController = require('./controllers/OrderController');
 const PartnershipController = require('./controllers/PartnershipController');
 const BillingController = require('./controllers/BillingController');
-const BetaOnboardingController = require('./controllers/BetaOnboardingController');
+// const BetaOnboardingController = require('./controllers/BetaOnboardingController');
+const SuperAdminController = require('./controllers/SuperAdminController');
 const HealthCheckService = require('./services/HealthCheckService');
 const { tenantResolver, requireTenant } = require('./middleware/tenant-resolver');
 const { validateDomain, checkDomainStatus } = require('./middleware/domain-validator');
@@ -16,14 +17,30 @@ const routes = express.Router();
 const blingController = new BlingController();
 const themeController = new ThemeController();
 const orderController = new OrderController();
-const betaOnboardingController = new BetaOnboardingController();
+// const betaOnboardingController = new BetaOnboardingController();
+const superAdminController = new SuperAdminController();
 const healthCheckService = new HealthCheckService();
 
-// Middleware global de resolução de tenant
-routes.use(tenantResolver);
-
-// Setup health check routes
+// Setup health check routes (antes do middleware de tenant)
 healthCheckService.setupRoutes(routes);
+
+// ========================================
+// SUPER ADMIN ROUTES - HUB360PLUS CONTROL (SEM TENANT)
+// ========================================
+
+// Dashboard com métricas globais
+routes.get('/api/super-admin/metrics', superAdminController.getDashboardMetrics.bind(superAdminController));
+
+// Gerenciamento completo de fornecedores
+routes.get('/api/super-admin/suppliers', superAdminController.getAllSuppliers.bind(superAdminController));
+routes.post('/api/super-admin/suppliers', superAdminController.createSupplier.bind(superAdminController));
+routes.put('/api/super-admin/suppliers/:supplierId/status', superAdminController.toggleSupplierStatus.bind(superAdminController));
+
+// Geração de NFe de serviços via Bling
+routes.post('/api/super-admin/nfe/:subscriptionId', superAdminController.generateServiceNFe.bind(superAdminController));
+
+// Middleware global de resolução de tenant (APÓS as rotas Super Admin)
+routes.use(tenantResolver);
 
 // Rotas de validação de domínio
 routes.get('/api/domain/check/:domain?', checkDomainStatus);
@@ -281,22 +298,26 @@ routes.get('/api/theme/current/compiled', requireTenant,
 // ROTAS BETA ONBOARDING
 // ========================================
 
-// Beta onboarding management
-routes.post('/api/beta/onboarding/start', requireTenant, betaOnboardingController.startOnboarding.bind(betaOnboardingController));
-routes.get('/api/beta/onboarding/status', requireTenant, betaOnboardingController.getOnboardingStatus.bind(betaOnboardingController));
-routes.get('/api/beta/onboarding/steps/:user_type', betaOnboardingController.getOnboardingSteps.bind(betaOnboardingController));
-routes.put('/api/beta/onboarding/:onboarding_id/step/:step_id', requireTenant, betaOnboardingController.completeStep.bind(betaOnboardingController));
+// Beta onboarding management (TEMPORARILY COMMENTED - UUID ISSUE)
+// routes.post('/api/beta/onboarding/start', requireTenant, betaOnboardingController.startOnboarding.bind(betaOnboardingController));
+// routes.get('/api/beta/onboarding/status', requireTenant, betaOnboardingController.getOnboardingStatus.bind(betaOnboardingController));
+// routes.get('/api/beta/onboarding/steps/:user_type', betaOnboardingController.getOnboardingSteps.bind(betaOnboardingController));
+// routes.put('/api/beta/onboarding/:onboarding_id/step/:step_id', requireTenant, betaOnboardingController.completeStep.bind(betaOnboardingController));
 
-// Beta feedback and support
-routes.post('/api/beta/feedback', requireTenant, betaOnboardingController.submitFeedback.bind(betaOnboardingController));
-routes.post('/api/beta/support/ticket', requireTenant, betaOnboardingController.createSupportTicket.bind(betaOnboardingController));
+// Beta feedback and support (TEMPORARILY COMMENTED)
+// routes.post('/api/beta/feedback', requireTenant, betaOnboardingController.submitFeedback.bind(betaOnboardingController));
+// routes.post('/api/beta/support/ticket', requireTenant, betaOnboardingController.createSupportTicket.bind(betaOnboardingController));
 
-// Beta metrics
-routes.get('/api/beta/metrics', requireTenant, betaOnboardingController.getBetaMetrics.bind(betaOnboardingController));
-routes.post('/api/beta/metrics', requireTenant, betaOnboardingController.recordMetric.bind(betaOnboardingController));
+// Beta metrics (TEMPORARILY COMMENTED)
+// routes.get('/api/beta/metrics', requireTenant, betaOnboardingController.getBetaMetrics.bind(betaOnboardingController));
+// routes.post('/api/beta/metrics', requireTenant, betaOnboardingController.recordMetric.bind(betaOnboardingController));
 
-// Admin beta overview (requires admin auth - to be implemented)
-routes.get('/api/admin/beta/overview', betaOnboardingController.getBetaOverview.bind(betaOnboardingController));
+// Admin beta overview (TEMPORARILY COMMENTED)
+// routes.get('/api/admin/beta/overview', betaOnboardingController.getBetaOverview.bind(betaOnboardingController));
+
+// ========================================
+// ROTAS MOVIDAS PARA O INÍCIO DO ARQUIVO (SEM MIDDLEWARE TENANT)
+// ========================================
 
 // ========================================
 // FALLBACK ROUTES

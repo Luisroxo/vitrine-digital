@@ -1,6 +1,9 @@
 const BetaOnboardingService = require('../services/BetaOnboardingService');
 const db = require('../database/connection');
 
+// Função simples para gerar UUID
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
+
 class BetaOnboardingController {
     constructor() {
         this.onboardingService = new BetaOnboardingService(db);
@@ -126,9 +129,8 @@ class BetaOnboardingController {
                 });
             }
 
-            const { v4: uuidv4 } = require('uuid');
             const feedback = await db('beta_feedback').insert({
-                id: uuidv4(),
+                id: generateId(),
                 tenant_id,
                 feedback_type,
                 category,
@@ -172,7 +174,7 @@ class BetaOnboardingController {
             const ticketNumber = `VD-${Date.now().toString().slice(-6)}`;
 
             const ticket = await db('beta_support_tickets').insert({
-                id: uuidv4(),
+                id: generateId(),
                 tenant_id,
                 ticket_number: ticketNumber,
                 subject,
@@ -261,7 +263,7 @@ class BetaOnboardingController {
             }
 
             const metric = await db('beta_metrics').insert({
-                id: uuidv4(),
+                id: generateId(),
                 tenant_id,
                 metric_type,
                 metric_name,

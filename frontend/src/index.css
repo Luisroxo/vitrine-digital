@@ -83,3 +83,72 @@ body {
   opacity: 0.4;
   margin: 20px auto;
 }
+
+/* Estilos para Super Admin - Painel Expansível */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(0, 123, 255, 0.05) !important;
+}
+
+.table-active {
+  background-color: rgba(0, 123, 255, 0.1) !important;
+}
+
+/* Transições suaves para painéis expansíveis */
+.expandable-panel {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Melhorias visuais para badges e botões */
+.badge {
+  font-size: 0.75em;
+  padding: 0.35em 0.65em;
+}
+
+/* Estilo para botões de ação no painel */
+.action-buttons .btn {
+  transition: all 0.2s ease-in-out;
+}
+
+.action-buttons .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.action-buttons .btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Animação do spinner */
+.fa-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Estilos para modais */
+.modal.show {
+  display: block !important;
+}
+
+.modal-backdrop {
+  background-color: rgba(0,0,0,0.5);
+}

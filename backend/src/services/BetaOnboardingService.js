@@ -1,5 +1,6 @@
 const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
+// Função simples para gerar UUID
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substring(2);
 
 // Beta Onboarding Service for Production Launch
 class BetaOnboardingService {
@@ -37,7 +38,7 @@ class BetaOnboardingService {
     // Create beta onboarding record
     async createOnboarding(tenantId, userType, metadata = {}) {
         try {
-            const onboardingId = uuidv4();
+            const onboardingId = generateId();
             const steps = this.onboardingSteps[userType] || [];
 
             const onboardingRecord = {
@@ -359,7 +360,7 @@ class BetaOnboardingService {
     async logOnboardingEvent(onboardingId, eventType, eventData) {
         try {
             await this.db('beta_onboarding_logs').insert({
-                id: uuidv4(),
+                id: generateId(),
                 onboarding_id: onboardingId,
                 event_type: eventType,
                 event_data: JSON.stringify(eventData),
