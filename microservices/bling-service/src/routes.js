@@ -32,7 +32,14 @@ router.get('/sync/stats', authMiddleware, blingController.getSyncStats.bind(blin
 // Dashboard (protected)
 router.get('/dashboard', authMiddleware, blingController.getDashboard.bind(blingController));
 
+// Price Sync operations (protected)
+router.post('/prices/sync', authMiddleware, blingController.syncAllPrices.bind(blingController));
+router.post('/prices/sync/tenant', authMiddleware, blingController.syncTenantPrices.bind(blingController));
+router.get('/prices/sync/stats', authMiddleware, blingController.getPriceSyncStats.bind(blingController));
+router.get('/prices/history/:productId', authMiddleware, blingController.getPriceHistory.bind(blingController));
+
 // Webhooks (public - will be secured by signature validation)
 router.post('/webhooks/:tenantId', blingController.handleWebhook.bind(blingController));
+router.post('/webhooks/prices/:tenantId', blingController.handlePriceWebhook.bind(blingController));
 
 module.exports = router;

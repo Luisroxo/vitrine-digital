@@ -14,6 +14,7 @@ services:
       - PRODUCT_SERVICE_URL=http://product-service:3003
       - BLING_SERVICE_URL=http://bling-service:3004
       - BILLING_SERVICE_URL=http://billing-service:3005
+      - BACKUP_SERVICE_URL=http://backup-service:3005
     depends_on:
       - auth-service
       - product-service
@@ -55,6 +56,13 @@ services:
       - PRODUCT_DB_USER=postgres
       - PRODUCT_DB_PASSWORD=password
       - REDIS_URL=redis://redis:6379
+      - CDN_ENABLED=true
+      - CDN_BUCKET_NAME=${CDN_BUCKET_NAME}
+      - CDN_DOMAIN_NAME=${CDN_DOMAIN_NAME}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
     depends_on:
       - product-db
       - redis
@@ -142,6 +150,51 @@ services:
     networks:
       - microservices-network
 
+  # Backup Service
+  backup-service:
+    build:
+      context: ./backup-service
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3005"
+    environment:
+      - NODE_ENV=development
+      - BACKUP_PATH=/app/backups
+      - AUTH_DB_HOST=auth-db
+      - AUTH_DB_USER=postgres
+      - AUTH_DB_PASSWORD=password
+      - AUTH_DB_NAME=auth_db
+      - PRODUCT_DB_HOST=product-db
+      - PRODUCT_DB_USER=postgres
+      - PRODUCT_DB_PASSWORD=password
+      - PRODUCT_DB_NAME=product_db
+      - BLING_DB_HOST=bling-db
+      - BLING_DB_USER=postgres
+      - BLING_DB_PASSWORD=password
+      - BLING_DB_NAME=bling_db
+      - BILLING_DB_HOST=billing-db
+      - BILLING_DB_USER=postgres
+      - BILLING_DB_PASSWORD=password
+      - BILLING_DB_NAME=billing_db
+      - BACKUP_RETENTION_DAILY=7
+      - BACKUP_RETENTION_WEEKLY=4
+      - BACKUP_RETENTION_MONTHLY=12
+      # Opcional: AWS S3 para backup remoto
+      # - AWS_S3_BUCKET=your-backup-bucket
+      # - AWS_ACCESS_KEY_ID=your-access-key
+      # - AWS_SECRET_ACCESS_KEY=your-secret-key
+      # - AWS_REGION=us-east-1
+    volumes:
+      - backup-data:/app/backups
+      - backup-logs:/app/logs
+    depends_on:
+      - auth-db
+      - product-db
+      - bling-db
+      - billing-db
+    networks:
+      - microservices-network
+
   # Redis Message Queue
   redis:
     image: redis:6-alpine
@@ -174,6 +227,8 @@ volumes:
   product-db-data:
   bling-db-data:
   billing-db-data:
+  backup-data:
+  backup-logs:
 
 networks:
   microservices-network:

@@ -7,6 +7,9 @@ const rateLimit = require('express-rate-limit');
 const routes = require('./routes');
 const { Logger, ErrorHandler } = require('../shared');
 const { HealthChecker, commonChecks } = require('../../shared/utils/health');
+const EnhancedBlingPriceSyncService = require('./services/EnhancedBlingPriceSyncService');
+const enhancedPriceSyncRoutes = require('./routes/enhancedPriceSyncRoutes');
+const priceSyncRoutes = require('./routes/priceSyncRoutes');
 
 class BlingService {
   constructor() {
@@ -26,6 +29,28 @@ class BlingService {
     // Inicializar conexão com banco de dados
     this.db = require('knex')(require('../knexfile'));
     this.logger.info('Database connection initialized');
+    
+    // Initialize Enhanced Price Sync Service
+    this.setupEnhancedPriceSyncService();
+  }
+
+  async setupEnhancedPriceSyncService() {
+    try {
+      this.enhancedPriceSyncService = new EnhancedBlingPriceSyncService(
+        this.db, 
+        null, // BlingService will be passed later
+        null  // EventPublisher will be initialized
+      );
+      
+      await this.enhancedPriceSyncService.initialize();
+      
+      // Make service available to routes
+      this.app.locals.enhancedPriceSyncService = this.enhancedPriceSyncService;
+      
+      this.logger.info('Enhanced Price Sync Service initialized successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize Enhanced Price Sync Service:', error);
+    }
   }
 
   setupHealthChecks() {
@@ -163,6 +188,12 @@ class BlingService {
     
     // API routes
     this.app.use('/api/bling', routes);
+    
+    // Enhanced Price Sync routes
+    this.app.use('/api/bling/price-sync', enhancedPriceSyncRoutes);
+    
+    // Price Sync routes v2.0
+    this.app.use('/api/bling/sync', priceSyncRoutes);
     
     // Root health check
     this.app.get('/', (req, res) => {

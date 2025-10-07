@@ -5,6 +5,7 @@ const BlingOrderManager = require('./BlingOrderManager');
 const BlingWebhookProcessor = require('./BlingWebhookProcessor');
 const BlingEventProcessor = require('./BlingEventProcessor');
 const BlingJobManager = require('./BlingJobManager');
+const BlingPriceSyncService = require('./BlingPriceSyncService');
 
 /**
  * Enhanced Bling Service with full multi-tenant support and advanced features
@@ -23,6 +24,7 @@ class BlingService {
     this.webhookProcessor = new BlingWebhookProcessor(database, this.eventPublisher);
     this.eventProcessor = new BlingEventProcessor(database, this, this.eventPublisher);
     this.jobManager = new BlingJobManager(database, this, this.eventPublisher);
+    this.priceSyncService = new BlingPriceSyncService(database, this, this.eventPublisher);
 
     // Configuration
     this.config = {
@@ -69,6 +71,7 @@ class BlingService {
       await this.webhookProcessor.initialize();
       await this.eventProcessor.initialize();
       await this.jobManager.initialize();
+      await this.priceSyncService.initialize();
 
       // Set up event listeners
       this.setupEventListeners();
@@ -1016,6 +1019,57 @@ class BlingService {
   }
 
   /**
+   * Price Sync Methods
+   */
+
+  /**
+   * Manually trigger price sync for all tenants
+   */
+  async syncAllPrices() {
+    try {
+      this.logger.info('Manual price sync triggered');
+      return await this.priceSyncService.syncAllTenantPrices();
+    } catch (error) {
+      this.logger.error('Manual price sync failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Sync prices for specific tenant
+   */
+  async syncTenantPrices(tenantId) {
+    try {
+      this.logger.info(`Manual price sync triggered for tenant ${tenantId}`);
+      return await this.priceSyncService.syncTenantPrices(tenantId);
+    } catch (error) {
+      this.logger.error(`Price sync failed for tenant ${tenantId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get price sync statistics
+   */
+  getPriceSyncStats() {
+    return this.priceSyncService.getStats();
+  }
+
+  /**
+   * Get price history for a product
+   */
+  async getPriceHistory(tenantId, productId, limit = 50) {
+    return await this.priceSyncService.getPriceHistory(tenantId, productId, limit);
+  }
+
+  /**
+   * Handle webhook price update
+   */
+  async handlePriceWebhook(webhookData) {
+    return await this.priceSyncService.handleWebhookPriceUpdate(webhookData);
+  }
+
+  /**
    * Cleanup and maintenance
    */
 
@@ -1027,6 +1081,10 @@ class BlingService {
 
       if (this.eventProcessor) {
         await this.eventProcessor.stopProcessingLoop();
+      }
+
+      if (this.priceSyncService) {
+        this.priceSyncService.stopPeriodicSync();
       }
 
       this.logger.info('Bling service cleanup completed');

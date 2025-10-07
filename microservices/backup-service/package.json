@@ -1,0 +1,49 @@
+{
+  "name": "backup-service",
+  "version": "1.0.0",
+  "description": "Automated Backup System for Microservices",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "backup:manual": "node -e \"const BackupSystem = require('./src/services/AutomatedBackupSystem'); const system = new BackupSystem(); system.executeManualBackup().then(success => process.exit(success ? 0 : 1));\"",
+    "backup:cleanup": "node -e \"const BackupSystem = require('./src/services/AutomatedBackupSystem'); const system = new BackupSystem(); system.cleanupOldBackups().then(() => process.exit(0));\"",
+    "docker:build": "docker build -t backup-service .",
+    "docker:run": "docker run -d --name backup-service -p 3005:3005 -v backup_data:/app/backups backup-service"
+  },
+  "dependencies": {
+    "express": "^4.18.0",
+    "cors": "^2.8.5",
+    "helmet": "^6.1.0",
+    "compression": "^1.7.4",
+    "express-rate-limit": "^6.7.0",
+    "node-cron": "^3.0.2",
+    "aws-sdk": "^2.1400.0",
+    "axios": "^1.4.0",
+    "dotenv": "^16.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22",
+    "jest": "^29.5.0",
+    "@types/node": "^20.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "backup",
+    "microservices",
+    "automation",
+    "postgresql",
+    "mysql",
+    "s3",
+    "enterprise"
+  ],
+  "author": "Vitrine Digital Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-repo/vitrine-digital"
+  }
+}

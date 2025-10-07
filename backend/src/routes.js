@@ -13,6 +13,15 @@ const HealthCheckService = require('./services/HealthCheckService');
 const { tenantResolver, requireTenant } = require('./middleware/tenant-resolver');
 const { validateDomain, checkDomainStatus } = require('./middleware/domain-validator');
 
+// Import enhanced analytics routes
+const enhancedAnalyticsRoutes = require('../microservices/shared/routes/enhancedAnalyticsRoutes');
+
+// Import enhanced shopping cart routes
+const enhancedShoppingCartRoutes = require('../microservices/shared/routes/enhancedShoppingCartRoutes');
+
+// Import conflict resolution routes
+const conflictResolutionRoutes = require('../microservices/shared/routes/conflictResolutionRoutes');
+
 const routes = express.Router();
 const blingController = new BlingController();
 const themeController = new ThemeController();
@@ -41,6 +50,15 @@ routes.post('/api/super-admin/nfe/:subscriptionId', superAdminController.generat
 
 // Middleware global de resolução de tenant (APÓS as rotas Super Admin)
 routes.use(tenantResolver);
+
+// Enhanced Analytics Routes (with tenant context)
+routes.use('/api/analytics', enhancedAnalyticsRoutes);
+
+// Enhanced Shopping Cart Routes (with tenant context)
+routes.use('/api/cart', enhancedShoppingCartRoutes);
+
+// Conflict Resolution Routes (with tenant context)
+routes.use('/api/conflicts', conflictResolutionRoutes);
 
 // Rotas de validação de domínio
 routes.get('/api/domain/check/:domain?', checkDomainStatus);

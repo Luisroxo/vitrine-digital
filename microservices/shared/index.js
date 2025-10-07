@@ -10,6 +10,10 @@ const DatabaseConnection = require('./database/connection');
 const EventPublisher = require('./events/EventPublisher');
 const EventSubscriber = require('./events/EventSubscriber');
 
+// Services
+const CacheService = require('./services/CacheService');
+const ImageProcessingService = require('./services/ImageProcessingService');
+
 // Common utilities
 const JWTUtils = require('./utils/jwt');
 const ValidationSchemas = require('./utils/validation');
@@ -23,6 +27,10 @@ module.exports = {
   // Events
   EventPublisher,
   EventSubscriber,
+
+  // Services
+  CacheService,
+  ImageProcessingService,
 
   // Utils
   JWTUtils,

@@ -7,6 +7,12 @@ const rateLimit = require('express-rate-limit');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { Logger, JWTUtils, ErrorHandler } = require('../../shared');
 const { HealthChecker } = require('../../shared/utils/health');
+const LogService = require('../../shared/services/LogService');
+const RequestLogger = require('../../shared/middleware/RequestLogger');
+const createLogRoutes = require('../../shared/routes/logRoutes');
+const SLAMonitor = require('../../shared/services/SLAMonitor');
+const NotificationService = require('../../shared/services/NotificationService');
+const createSLARoutes = require('../../shared/routes/slaRoutes');
 const MetricsMiddleware = require('./middleware/MetricsMiddleware');
 const CircuitBreakerMiddleware = require('./middleware/CircuitBreakerMiddleware');
 const ServiceDiscovery = require('./services/ServiceDiscovery');
@@ -15,6 +21,9 @@ const RetryPolicy = require('./middleware/RetryPolicy');
 const JWTValidationPipeline = require('./middleware/JWTValidationPipeline');
 const RoleBasedRouter = require('./middleware/RoleBasedRouter');
 const RequestSanitizer = require('./middleware/RequestSanitizer');
+const systemHealthRoutes = require('./routes/systemHealth');
+const GatewayAnalyticsIntegration = require('./middleware/GatewayAnalyticsIntegration');
+const analyticsRoutes = require('../../shared/routes/analyticsRoutes');
 
 class APIGateway {
   constructor() {
@@ -22,6 +31,29 @@ class APIGateway {
     this.port = process.env.GATEWAY_PORT || 3000;
     this.logger = new Logger('api-gateway');
     this.healthChecker = new HealthChecker();
+    
+    // Initialize new logging system
+    this.logService = new LogService({
+      serviceName: 'api-gateway',
+      logDirectory: process.env.LOG_DIR || './logs',
+      redisClient: null // Will be initialized if Redis is available
+    });
+    this.requestLogger = new RequestLogger(this.logService);
+    
+    // Initialize SLA monitoring system
+    this.notificationService = new NotificationService({
+      logService: this.logService,
+      email: { enabled: process.env.SLA_EMAIL_ENABLED === 'true' },
+      slack: { enabled: process.env.SLA_SLACK_ENABLED === 'true' },
+      webhook: { enabled: process.env.SLA_WEBHOOK_ENABLED === 'true' }
+    });
+    
+    this.slaMonitor = new SLAMonitor({
+      serviceName: 'api-gateway',
+      logService: this.logService,
+      notificationService: this.notificationService,
+      redisClient: null // Will be initialized if Redis is available
+    });
     
     // Initialize enhanced services
     this.serviceDiscovery = new ServiceDiscovery();
@@ -34,6 +66,9 @@ class APIGateway {
     this.jwtValidation = new JWTValidationPipeline();
     this.roleRouter = new RoleBasedRouter();
     this.requestSanitizer = new RequestSanitizer();
+    
+    // Initialize Analytics Integration
+    this.analyticsIntegration = new GatewayAnalyticsIntegration();
     
     // Legacy components
     this.jwtUtils = new JWTUtils();
@@ -154,6 +189,12 @@ class APIGateway {
     };
     this.app.use(cors(corsOptions));
 
+    // Request logging middleware
+    this.app.use(this.requestLogger.middleware());
+
+    // Analytics Integration middleware
+    this.app.use(this.analyticsIntegration.requestTrackingMiddleware());
+
     // Metrics middleware
     this.app.use(this.metrics.middleware());
 
@@ -224,6 +265,24 @@ class APIGateway {
     
     // Enhanced health check routes
     this.healthCheck.createRoutes(this.app);
+    
+    // Log management routes
+    const logRoutes = createLogRoutes(this.logService, this.requestLogger);
+    this.app.use('/api/shared/logs', logRoutes);
+    
+    // SLA monitoring routes
+    const slaRoutes = createSLARoutes(this.slaMonitor, this.notificationService);
+    this.app.use('/api/shared/sla', slaRoutes);
+    
+    // System Health Dashboard routes
+    this.app.use('/api/shared/system', systemHealthRoutes);
+    
+    // Analytics routes
+    this.app.use('/api/shared/analytics', analyticsRoutes);
+    
+    // Backup System routes
+    const backupRoutes = require('../../shared/routes/backupRoutes');
+    this.app.use('/api/shared/backup', backupRoutes);
     
     // Legacy endpoints for backward compatibility
     this.app.get('/status', this.serviceStatus.bind(this));
@@ -493,6 +552,13 @@ class APIGateway {
   }
 
   setupErrorHandling() {
+    // Analytics error tracking middleware
+    this.app.use(this.analyticsIntegration.errorTrackingMiddleware());
+    
+    // Request logger middlewares
+    this.app.use(this.requestLogger.notFoundMiddleware());
+    this.app.use(this.requestLogger.errorMiddleware());
+    
     // 404 handler
     this.app.use(ErrorHandler.notFoundHandler());
     
@@ -504,12 +570,17 @@ class APIGateway {
     try {
       this.app.listen(this.port, () => {
         this.logger.logStartup(this.port, process.env.NODE_ENV);
+        
+        // Start analytics periodic collection
+        this.analyticsIntegration.startPeriodicCollection();
+        
         console.log(`
 🚀 API Gateway started successfully!
 📊 Port: ${this.port}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 📈 Health: http://localhost:${this.port}/health
 📋 Status: http://localhost:${this.port}/status
+📊 Analytics: http://localhost:${this.port}/api/shared/analytics/dashboard
 
 🔗 Proxied Services:
   • Auth Service: ${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}

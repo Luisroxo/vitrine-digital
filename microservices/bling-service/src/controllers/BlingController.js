@@ -1,6 +1,7 @@
 const BlingAPI = require('../services/BlingAPI');
 const ConnectionService = require('../services/ConnectionService');
 const SyncService = require('../services/SyncService');
+const BlingService = require('../services/BlingService');
 const { Logger } = require('../../shared');
 
 class BlingController {
@@ -8,6 +9,7 @@ class BlingController {
     this.blingAPI = new BlingAPI();
     this.connectionService = new ConnectionService();
     this.syncService = new SyncService();
+    this.blingService = new BlingService(require('../database/connection'));
     this.logger = new Logger('bling-controller');
   }
 
@@ -483,6 +485,143 @@ class BlingController {
       res.status(500).json({
         success: false,
         error: 'Failed to process webhook'
+      });
+    }
+  }
+
+  // Price Sync Methods
+  async syncAllPrices(req, res) {
+    try {
+      this.logger.info('Manual price sync requested by user', {
+        userId: req.user?.id,
+        tenantId: req.user?.tenantId
+      });
+
+      const result = await this.blingService.syncAllPrices();
+
+      res.json({
+        success: true,
+        message: 'Price sync completed successfully',
+        data: result
+      });
+    } catch (error) {
+      this.logger.error('Price sync failed', {
+        error: error.message,
+        userId: req.user?.id
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to sync prices',
+        message: error.message
+      });
+    }
+  }
+
+  async syncTenantPrices(req, res) {
+    try {
+      const { tenantId } = req.user;
+
+      this.logger.info('Manual tenant price sync requested', {
+        userId: req.user?.id,
+        tenantId
+      });
+
+      const result = await this.blingService.syncTenantPrices(tenantId);
+
+      res.json({
+        success: true,
+        message: 'Tenant price sync completed successfully',
+        data: result
+      });
+    } catch (error) {
+      this.logger.error('Tenant price sync failed', {
+        error: error.message,
+        tenantId: req.user?.tenantId
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to sync tenant prices',
+        message: error.message
+      });
+    }
+  }
+
+  async getPriceSyncStats(req, res) {
+    try {
+      const stats = this.blingService.getPriceSyncStats();
+
+      res.json({
+        success: true,
+        data: stats
+      });
+    } catch (error) {
+      this.logger.error('Failed to get price sync stats', {
+        error: error.message
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get price sync statistics'
+      });
+    }
+  }
+
+  async getPriceHistory(req, res) {
+    try {
+      const { tenantId } = req.user;
+      const { productId } = req.params;
+      const { limit = 50 } = req.query;
+
+      const history = await this.blingService.getPriceHistory(tenantId, productId, parseInt(limit));
+
+      res.json({
+        success: true,
+        data: {
+          product_id: productId,
+          tenant_id: tenantId,
+          history,
+          total: history.length
+        }
+      });
+    } catch (error) {
+      this.logger.error('Failed to get price history', {
+        error: error.message,
+        productId: req.params.productId,
+        tenantId: req.user?.tenantId
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get price history'
+      });
+    }
+  }
+
+  async handlePriceWebhook(req, res) {
+    try {
+      const webhookData = req.body;
+      
+      this.logger.info('Price webhook received', {
+        data: webhookData
+      });
+
+      await this.blingService.handlePriceWebhook(webhookData);
+
+      res.json({
+        success: true,
+        message: 'Price webhook processed successfully'
+      });
+    } catch (error) {
+      this.logger.error('Failed to process price webhook', {
+        error: error.message,
+        body: req.body
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'Failed to process price webhook'
       });
     }
   }
