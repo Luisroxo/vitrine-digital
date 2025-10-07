@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const bcrypt = require('bcrypt');
 const { DatabaseConnection, Logger, JWTUtils, ValidationSchemas, ErrorHandler, EventPublisher } = require('../../shared');
+const { HealthChecker, commonChecks } = require('../../shared/utils/health');
 
 class AuthService {
   constructor() {
@@ -12,8 +13,10 @@ class AuthService {
     this.logger = new Logger('auth-service');
     this.jwtUtils = new JWTUtils();
     this.eventPublisher = new EventPublisher(process.env.REDIS_URL);
+    this.healthChecker = new HealthChecker();
     
     this.setupDatabase();
+    this.setupHealthChecks();
     this.setupMiddleware();
     this.setupRoutes();
     this.setupErrorHandling();
@@ -39,6 +42,39 @@ class AuthService {
     }
   }
 
+  setupHealthChecks() {
+    // Register health checks
+    this.healthChecker.registerCheck('memory', commonChecks.memory(0.9));
+    this.healthChecker.registerCheck('environment', commonChecks.environment([
+      'DATABASE_URL', 'JWT_SECRET'
+    ]));
+
+    // Check user count as business metric
+    this.healthChecker.registerCheck('user_count', async () => {
+      const result = await this.db('users').count('id as count').first();
+      const count = parseInt(result.count);
+      
+      return {
+        totalUsers: count,
+        status: count > 0 ? 'populated' : 'empty'
+      };
+    });
+
+    // Register dependencies
+    this.healthChecker.registerDependency('database', commonChecks.database(this.db), {
+      critical: true,
+      timeout: 5000
+    });
+
+    if (process.env.REDIS_URL) {
+      const redis = require('redis').createClient(process.env.REDIS_URL);
+      this.healthChecker.registerDependency('redis', commonChecks.redis(redis), {
+        critical: false,
+        timeout: 3000
+      });
+    }
+  }
+
   setupMiddleware() {
     this.app.use(helmet());
     this.app.use(cors());
@@ -47,15 +83,10 @@ class AuthService {
   }
 
   setupRoutes() {
-    // Health check
-    this.app.get('/health', (req, res) => {
-      res.json({
-        service: 'Auth Service',
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime()
-      });
-    });
+    // Health check routes
+    this.app.get('/health', this.healthChecker.middleware());
+    this.app.get('/health/ready', this.healthChecker.readinessProbe());
+    this.app.get('/health/live', this.healthChecker.livenessProbe());
 
     // Authentication routes
     this.app.post('/register', 

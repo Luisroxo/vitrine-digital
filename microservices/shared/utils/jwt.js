@@ -70,6 +70,55 @@ class JWTUtils {
   }
 
   /**
+   * Generate reset token
+   * @param {Object} user - User object
+   * @param {Object} options - Token options
+   */
+  generateResetToken(user, options = {}) {
+    const payload = {
+      userId: user.userId || user.id,
+      email: user.email,
+      tenantId: user.tenantId || user.tenant_id,
+      type: 'reset'
+    };
+
+    return this.generateToken(payload, {
+      expiresIn: '1h',
+      ...options
+    });
+  }
+
+  /**
+   * Verify refresh token specifically
+   * @param {string} token - Refresh token
+   * @returns {Object} Decoded payload
+   */
+  verifyRefreshToken(token) {
+    const decoded = this.verifyToken(token);
+    
+    if (decoded.type !== 'refresh') {
+      throw new Error('Invalid token type');
+    }
+
+    return decoded;
+  }
+
+  /**
+   * Verify reset token specifically
+   * @param {string} token - Reset token
+   * @returns {Object} Decoded payload
+   */
+  verifyResetToken(token) {
+    const decoded = this.verifyToken(token);
+    
+    if (decoded.type !== 'reset') {
+      throw new Error('Invalid token type');
+    }
+
+    return decoded;
+  }
+
+  /**
    * Verify and decode JWT token
    * @param {string} token - JWT token
    * @param {Object} options - Verification options

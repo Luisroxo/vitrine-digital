@@ -1,0 +1,47 @@
+{
+  "name": "vitrine-digital-billing-service",
+  "version": "1.0.0",
+  "description": "Billing and Subscription Management Service for Vitrine Digital",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "migrate": "knex migrate:latest",
+    "migrate:rollback": "knex migrate:rollback",
+    "seed": "knex seed:run"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1",
+    "knex": "^2.5.1",
+    "pg": "^8.11.1",
+    "redis": "^4.6.7",
+    "axios": "^1.4.0",
+    "dotenv": "^16.3.1",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.1",
+    "uuid": "^9.0.0",
+    "moment": "^2.29.4",
+    "stripe": "^12.18.0",
+    "node-cron": "^3.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.1",
+    "supertest": "^6.3.3"
+  },
+  "keywords": [
+    "billing",
+    "subscription",
+    "payment",
+    "microservice",
+    "vitrine-digital"
+  ],
+  "author": "Vitrine Digital Team",
+  "license": "MIT"
+}

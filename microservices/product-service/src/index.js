@@ -2,7 +2,10 @@ const express = require('express');
 const cors = require('cors');
 const knex = require('knex');
 const config = require('./config/database');
-const { Logger } = require('../../shared');
+const { Logger, EventPublisher } = require('../../shared');
+const { HealthChecker, commonChecks } = require('../../shared/utils/health');
+const ProductService = require('./services/ProductService');
+const ProductEventListener = require('./services/ProductEventListener');
 
 const app = express();
 
@@ -15,6 +18,40 @@ app.use(express.json({ limit: '10mb' }));
 
 // Database connection
 const db = knex(config);
+
+// Initialize health checker
+const healthChecker = new HealthChecker();
+
+// Register health checks
+healthChecker.registerCheck('memory', commonChecks.memory(0.9));
+healthChecker.registerCheck('environment', commonChecks.environment([
+  'DATABASE_URL'
+]));
+
+// Check product count as business metric
+healthChecker.registerCheck('product_count', async () => {
+  const result = await db('products').count('id as count').first();
+  const count = parseInt(result.count);
+  
+  return {
+    totalProducts: count,
+    status: count > 0 ? 'populated' : 'empty'
+  };
+});
+
+// Register dependencies
+healthChecker.registerDependency('database', commonChecks.database(db), {
+  critical: true,
+  timeout: 5000
+});
+
+if (process.env.REDIS_URL) {
+  const redis = require('redis').createClient(process.env.REDIS_URL);
+  healthChecker.registerDependency('redis', commonChecks.redis(redis), {
+    critical: false,
+    timeout: 3000
+  });
+}
 
 // Middleware para adicionar db e logger ao req
 app.use((req, res, next) => {
@@ -29,29 +66,12 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/variants', require('./routes/variants'));
 app.use('/api/stock', require('./routes/stock'));
 app.use('/api/sync', require('./routes/sync'));
+app.use('/api/analytics', require('./routes/analytics'));
 
-// Health check
-app.get('/health', async (req, res) => {
-  try {
-    // Testar conexão com banco
-    await db.raw('SELECT 1');
-    res.json({
-      status: 'healthy',
-      service: 'product-service',
-      timestamp: new Date().toISOString(),
-      database: 'connected'
-    });
-  } catch (error) {
-    logger.error('Health check failed', { error: error.message });
-    res.status(503).json({
-      status: 'unhealthy',
-      service: 'product-service',
-      timestamp: new Date().toISOString(),
-      database: 'disconnected',
-      error: error.message
-    });
-  }
-});
+// Health check routes
+app.get('/health', healthChecker.middleware());
+app.get('/health/ready', healthChecker.readinessProbe());
+app.get('/health/live', healthChecker.livenessProbe());
 
 // Error handling middleware
 app.use((error, req, res, next) => {
@@ -95,23 +115,44 @@ app.use('*', (req, res) => {
 
 const PORT = process.env.PORT || 3003;
 
-app.listen(PORT, () => {
+// Inicializar event listener
+let eventListener;
+const initializeEventListener = async () => {
+  try {
+    const eventPublisher = new EventPublisher();
+    const productService = new ProductService(db, logger, eventPublisher);
+    eventListener = new ProductEventListener(db, logger, productService);
+    
+    await eventListener.start();
+    logger.info('Product event listener initialized');
+  } catch (error) {
+    logger.error('Failed to initialize event listener', { error: error.message });
+  }
+};
+
+app.listen(PORT, async () => {
   logger.info(`Product service running on port ${PORT}`);
+  await initializeEventListener();
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+const gracefulShutdown = async (signal) => {
+  logger.info(`${signal} received, shutting down gracefully`);
+  
+  try {
+    if (eventListener) {
+      await eventListener.stop();
+    }
+  } catch (error) {
+    logger.error('Error stopping event listener', { error: error.message });
+  }
+  
   db.destroy(() => {
     process.exit(0);
   });
-});
+};
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
-  db.destroy(() => {
-    process.exit(0);
-  });
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = app;
