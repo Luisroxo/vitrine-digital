@@ -1,0 +1,40 @@
+{
+  "name": "vitrine-digital-auth-service",
+  "version": "1.0.0",
+  "description": "Authentication and authorization service for Vitrine Digital",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "knex migrate:latest",
+    "seed": "knex seed:run",
+    "test": "jest"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "knex": "^2.4.2",
+    "pg": "^8.8.0",
+    "dotenv": "^16.0.3",
+    "cors": "^2.8.5",
+    "helmet": "^6.0.1",
+    "express-rate-limit": "^6.7.0",
+    "joi": "^17.7.0",
+    "redis": "^4.5.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20",
+    "jest": "^29.3.1",
+    "supertest": "^6.3.3"
+  },
+  "keywords": [
+    "auth",
+    "microservice",
+    "jwt",
+    "authentication"
+  ],
+  "author": "Vitrine Digital Team",
+  "license": "MIT"
+}

@@ -1,0 +1,180 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - PRODUCT_SERVICE_URL=http://product-service:3003
+      - BLING_SERVICE_URL=http://bling-service:3004
+      - BILLING_SERVICE_URL=http://billing-service:3005
+    depends_on:
+      - auth-service
+      - product-service
+      - bling-service
+      - billing-service
+    networks:
+      - microservices-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@auth-db:5432/auth_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-super-secret-jwt-key
+    depends_on:
+      - auth-db
+      - redis
+    networks:
+      - microservices-network
+
+  # Product Service
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PRODUCT_DB_HOST=product-db
+      - PRODUCT_DB_PORT=5432
+      - PRODUCT_DB_NAME=product_db
+      - PRODUCT_DB_USER=postgres
+      - PRODUCT_DB_PASSWORD=password
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - product-db
+      - redis
+    networks:
+      - microservices-network
+
+  # Bling Service
+  bling-service:
+    build:
+      context: ./bling-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@bling-db:5432/bling_db
+      - REDIS_URL=redis://redis:6379
+      - BLING_CLIENT_ID=${BLING_CLIENT_ID}
+      - BLING_CLIENT_SECRET=${BLING_CLIENT_SECRET}
+    depends_on:
+      - bling-db
+      - redis
+    networks:
+      - microservices-network
+
+  # Billing Service
+  billing-service:
+    build:
+      context: ./billing-service
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:password@billing-db:5432/billing_db
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - billing-db
+      - redis
+    networks:
+      - microservices-network
+
+  # Databases
+  auth-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  product-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  bling-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: bling_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - bling-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  billing-db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: billing_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    volumes:
+      - billing-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+
+  # Redis Message Queue
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices-network
+
+  # Monitoring (Optional)
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - microservices-network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - microservices-network
+
+volumes:
+  auth-db-data:
+  product-db-data:
+  bling-db-data:
+  billing-db-data:
+
+networks:
+  microservices-network:
+    driver: bridge
